@@ -14,22 +14,25 @@
 // Dialog resources
 //
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-DLG_MAIN DIALOG 0, 0, 258, 138
+DLG_MAIN DIALOG 0, 0, 277, 161
 STYLE DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SHELLFONT | WS_CAPTION | WS_VISIBLE | WS_POPUP | WS_SYSMENU
 CAPTION "Avir"
 FONT 8, "Ms Shell Dlg"
 {
+    LTEXT           "0", IDS_NDEF, 101, 75, 5, 8, SS_LEFT, WS_EX_LEFT
+    LTEXT           "Number of Definitions:", 0, 17, 76, 70, 8, SS_LEFT, WS_EX_LEFT
+    CTEXT           "Udsm", 0, 123, 141, 19, 8, SS_CENTER, WS_EX_LEFT
     LTEXT           "Detections:", 0, 17, 63, 37, 8, SS_LEFT, WS_EX_LEFT
     LTEXT           "0", IDS_DECT, 63, 62, 59, 8, SS_LEFT, WS_EX_LEFT
-    PUSHBUTTON      "PAUSE", IDPAUSE, 127, 81, 50, 30, WS_DISABLED, WS_EX_LEFT
-    CONTROL         "", IDI_PROG, PROGRESS_CLASS, 0, 17, 18, 220, 14, WS_EX_LEFT
+    PUSHBUTTON      "PAUSE", IDPAUSE, 137, 94, 50, 30, WS_DISABLED, WS_EX_LEFT
+    CONTROL         "", IDI_PROG, PROGRESS_CLASS, 0, 17, 18, 248, 14, WS_EX_LEFT
     LTEXT           "Path:", 0, 17, 50, 18, 8, SS_LEFT, WS_EX_LEFT
     LTEXT           "Idle", IDMSG, 63, 50, 174, 8, SS_LEFT, WS_EX_LEFT
-    LTEXT           "CoreIT@2014", 0, 104, 116, 46, 8, SS_LEFT, WS_EX_LEFT
-    GROUPBOX        "Avir", 0, 7, 7, 244, 124, 0, WS_EX_LEFT
-    PUSHBUTTON      "CANCEL", IDCANCEL, 72, 81, 50, 30, WS_DISABLED, WS_EX_LEFT
-    PUSHBUTTON      "REPAIR", IDREPAIR, 182, 81, 55, 30, WS_DISABLED, WS_EX_LEFT
-    DEFPUSHBUTTON   "SCAN", IDSCAN, 17, 81, 50, 30, 0, WS_EX_LEFT
+    LTEXT           "CoreIT@2014", 0, 107, 128, 46, 8, SS_LEFT, WS_EX_LEFT
+    GROUPBOX        "Avir", 0, 7, 7, 263, 147, 0, WS_EX_LEFT
+    PUSHBUTTON      "CANCEL", IDCANCEL, 82, 94, 50, 30, WS_DISABLED, WS_EX_LEFT
+    PUSHBUTTON      "REPAIR", IDREPAIR, 192, 94, 55, 30, WS_DISABLED, WS_EX_LEFT
+    DEFPUSHBUTTON   "SCAN", IDSCAN, 27, 94, 50, 30, 0, WS_EX_LEFT
 }
 
 
@@ -40,12 +43,7 @@ FONT 8, "Ms Shell Dlg"
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 STRINGTABLE
 {
-    DF_SKYPEE                     "~Skypee.exe~         \
-                                    ~AutoIt.exe         \
-                                    ~googleupdate.m3u   \
-                                    ~google.lnk         \
-                                    ~skypee.lnk         \
-                                    ~HKEY\\LOCAL_MACHINE\\SOFTWARE\\"
+    DF_SKYPEE                     "~Skypee.exe~AutoIt3.exe~googleupdate.a3x~google.lnk~Skypee.lnk~Windowsupdate.lnk~r~HKEY\\LOCAL_MACHINE\\SOFTWARE\\~~"
     FL_TEST                       "~csrss.exe~lsass.exe"
 }
 
