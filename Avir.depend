@@ -1,13 +1,15 @@
 # depslib dependency file v1.0
-1400712468 source:c:\users\ramadan\documents\c-free\projects\avir\main.cpp
+1400756498 source:c:\users\ramadan\documents\c-free\projects\avir\main.cpp
 	<windows.h>
 	<commctrl.h>
 	<stdio.h>
 	"resource.h"
+	<string.h>
+	<vector>
 
-1400744858 c:\users\ramadan\documents\c-free\projects\avir\resource.h
+1400756592 c:\users\ramadan\documents\c-free\projects\avir\resource.h
 
-1400744874 source:c:\users\ramadan\documents\c-free\projects\avir\resource.rc
+1400756583 source:c:\users\ramadan\documents\c-free\projects\avir\resource.rc
 	<windows.h>
 	<commctrl.h>
 	<richedit.h>

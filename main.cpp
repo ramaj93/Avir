@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "resource.h"
 #include <string.h>
+#include <vector>
 
 HINSTANCE hInst;
 HANDLE mhThread;
@@ -10,50 +11,104 @@ bool Stop = false;
 bool pause = false;
 char drivers[MAX_PATH];
 char drive[25][10];
-
+long det = 0;
 CRITICAL_SECTION cs;
 
+typedef std::vector<HANDLE> vHandle;
 int fillDrives(int len)
 {
     int drv = 0;
     int index = 0;
-    for(int i = 0;i<len;i++)
+    for(int i = 0; i<len; i++)
     {
         if(drivers[i]!='\0')drive[drv][index++] = drivers[i];
-        else {
-                char *d = drive[drv];
-                drv++;
-                index = 0;
+        else
+        {
+            char *d = drive[drv];
+            drv++;
+            index = 0;
         }
     }
     return drv;
 }
+
 DWORD WINAPI thread(LPVOID param)
 {
     HWND lHwnd = (HWND)param;
     long long count = 0;
     char buf[MAX_PATH];
     int len = GetLogicalDriveStrings(MAX_PATH,drivers);
+    WIN32_FIND_DATA fd;
+    HANDLE file = NULL;
+    vHandle handles;
+
+    int level = 0;
     /*Get Number of Drives and Root Paths*/
+
     int dlen = fillDrives(len);
-    while(!Stop && (count < dlen) )
+    int rt = 1;
+
+    while(!Stop &&count <=dlen)
     {
-        if(!pause)
+        /*Set Current directory
+        if folder open*/
+        SetCurrentDirectory(drive[count]);
+        if(file == NULL)file = FindFirstFile("*",&fd);
+        while(rt&&file&&!Stop)
         {
-
-            SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)drive[count%dlen]);
-            //if(count == 2)break;
-            if(!(count%10000))PostMessage(lHwnd,WM_STEP_PB,0,0);
-
-            count ++;
+            if(!pause)
+            {
+                Sleep(10);
+                rt = FindNextFile(file,&fd);
+                if(rt > 0)
+                {
+                    if(level == 0 &&(fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
+                    {
+                        //Its a directory
+                        //we'll only go in one level
+                        handles.push_back(file);
+                        SetCurrentDirectory(fd.cFileName);
+                        file = FindFirstFile("*",&fd);
+                        level++;
+                    }
+                    else
+                    {
+                        //its a file
+                        char path[MAX_PATH];
+                        GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
+                        SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
+                        //do what to do here
+                        if(strcmp(fd.cFileName,"Autoit.exe") == 0)PostMessage(lHwnd,WM_UPDATE_DET,0,0);
+                        PostMessage(lHwnd,WM_STEP_PB,0,0);
+                    }
+                    memset(&fd,0,sizeof(fd));
+                }
+                else
+                {
+                    //going back one level will return us to the root
+                    if(level > 0)
+                    {
+                        SetCurrentDirectory(drive[count]);
+                        file = handles.back();
+                        handles.pop_back();
+                        level = 0;
+                        rt = FindNextFile(file,&fd);
+                    }
+                    else break;
+                }
+            }
+            else
+            {
+                Sleep(100);
+            }
         }
-        else
-        {
-            Sleep(100);
-        }
+        rt = 1;
+        file = NULL;
+        handles.clear();
+        count ++;
     }
-    //if(Stop)PostMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)("Stopped"));
-    //else PostMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)("Finished"));
+    if(Stop)PostMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)("Stopped"));
+    else PostMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)("Finished"));
     ExitThread(0);
 }
 
@@ -79,6 +134,14 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_UPDATE_MSG:
     {
         SetWindowText(GetDlgItem(hwndDlg,IDMSG),(LPCSTR)lParam);
+    }
+    return true;
+    case WM_UPDATE_DET:
+    {
+        ++det;
+        char Buf[10];
+        itoa(det,Buf,10);
+        SetWindowText(GetDlgItem(hwndDlg,IDS_DECT),Buf);
     }
     return true;
     case WM_STEP_PB:
