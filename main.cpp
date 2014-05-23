@@ -1,11 +1,11 @@
-#include <windows.h>
-#include <commctrl.h>
 #include <stdio.h>
 #include "resource.h"
 #include <string.h>
 #include <vector>
 #include <string>
 #include <cstdio>
+#include "aHelper.h"
+
 
 HINSTANCE hInst;
 HANDLE mhThread;
@@ -18,6 +18,7 @@ FILE *logFile = NULL;
 const unsigned int nDefs = IDS_LAST - IDS_DECT;
 CRITICAL_SECTION cs;
 
+//typedef BOOL (WINAPI *PFN_SETRESTOREPTW) (PRESTOREPOINTINFOW, PSTATEMGRSTATUS);
 typedef std::vector<HANDLE> vHandle;
 typedef std::vector<std::string> vString;
 std::vector<int> vLevels;
@@ -51,18 +52,25 @@ int fillDrives(int len)
     return drv;
 }
 
-const unsigned int MAX_LEV = 2;
+
+
+
+
+
+
+
+
 
 DWORD WINAPI thread(LPVOID param)
 {
     HWND lHwnd = (HWND)param;
     int count = 0;
-    char buf[MAX_PATH];
+    //char buf[MAX_PATH];
     int len = GetLogicalDriveStrings(MAX_PATH,drivers);
     WIN32_FIND_DATA fd;
     HANDLE file = NULL;
     vHandle handles;
-
+    const unsigned int MAX_LEV = SendMessage(GetDlgItem(lHwnd,IDC_CMB),CB_GETCURSEL,0,0); //get the max levels
     /*We always start at the drive root*/
     int level = 0;
     /*Get Number of Drives and Root Paths*/
@@ -70,57 +78,78 @@ DWORD WINAPI thread(LPVOID param)
     int dlen = fillDrives(len);
     int rt = 1;
     std::string curFolder;
-
+    char e[MAX_PATH] ;
+    char path[MAX_PATH];
     logFile = fopen("log.txt","a");
 
     while(!Stop &&count <=dlen)
     {
         /*Set Current directory*/
-        SetCurrentDirectory(drive[count]);
-        //roots.push_back(drive[count]); //pushed the root
+        GetCurrentDirectory(MAX_PATH,e);
+        int driveType = GetDriveType(drive[count]);
+        DWORD type = GetDriveFormFactor(count);
+        if((driveType == DRIVE_REMOVABLE)&&(type>0)&&(type<350)||(driveType == DRIVE_FIXED))
+        {
+            SetCurrentDirectory(drive[count]);
+        }
+        else
+        {
+            count++;
+            continue;
+        }
+        char *dr = drive[count];
+        GetCurrentDirectory(MAX_PATH,e);
         if(file == NULL)file = FindFirstFile("*",&fd);
-        //if file erro deal
-        char e[MAX_PATH] ;
 
         while(!Stop)          //we shouldnt get out of this loop until we finish the drive
         {
             if(!pause)
             {
-                Sleep(10);
+                Sleep(1);
                 rt = FindNextFile(file,&fd);
-
-                GetCurrentDirectory(MAX_PATH,e);
-                char *hy = fd.cFileName;
+                if(rt == 0 && level == 0)break;
+                //GetCurrentDirectory(MAX_PATH,e);
+                //char *hy = fd.cFileName;
                 if(rt > 0) //not the end of root
                 {
                     if(fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
                     {
                         //Its a directory
                         //we'll only go to max level
-                        if(level < MAX_LEV)
+                        if(!(fd.dwFileAttributes&FILE_ATTRIBUTE_SYSTEM&FILE_ATTRIBUTE_READONLY))
                         {
-                            if(fd.cFileName[0] == '.')continue;
-                            handles.push_back(file);
-                            GetCurrentDirectory(MAX_PATH,e);
-                            roots.push_back(e);
-                            char *fld = fd.cFileName;
-                            SetCurrentDirectory(fd.cFileName);
-                            curFolder = fd.cFileName;       //save the current dir
-                            //roots.push_back(fd.cFileName);  //push the new root
-                            file = FindFirstFile("*",&fd);  //get the new handle
-                            vLevels.push_back(level);       //push the level
-                            level++;
+                            if(level < MAX_LEV)
+                            {
+                                if(fd.cFileName[0] == '.')continue;
+                                handles.push_back(file);
+                                GetCurrentDirectory(MAX_PATH,e);
+                                roots.push_back(e);
+                                //char *fld = fd.cFileName;
+                                SetCurrentDirectory(fd.cFileName);
+                                curFolder = fd.cFileName;       //save the current dir
+                                GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
+                                SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
+                                file = FindFirstFile("*",&fd);  //get the new handle
+                                vLevels.push_back(level);       //push the level
+                                level++;
+                            }
+                            else {
+                                GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
+                                SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
+                                continue;   //goto lower level
+                            }
                         }
-                        else continue;   //goto lower level
+                        else
+                        {
+                            continue;
+                        }
                     }
                     else
                     {
                         //its a file
                         if(fd.cFileName[0] == '.')continue; //jump the . & ..
-                        char path[MAX_PATH];
                         GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
                         SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
-                        int id = defs.size();
                         for(int i = 0; i<defs.size(); i++)
                         {
                             for(int j = 0; j<defs[i].files.size(); j++)
@@ -128,7 +157,7 @@ DWORD WINAPI thread(LPVOID param)
                                 if(strcmp(fd.cFileName,defs[i].files[j].c_str()) == 0)
                                 {
                                     PostMessage(lHwnd,WM_UPDATE_DET,0,0);
-                                    fprintf(logFile,"%s\n",fd.cFileName);
+                                    fprintf(logFile,"\\%s\\%s\n",curFolder.c_str(),fd.cFileName);
                                 }
 
                             }
@@ -150,17 +179,21 @@ DWORD WINAPI thread(LPVOID param)
                         char *str = (char*)roots.back().c_str();
                         //roots.pop_back();                       //pop this root to the previous one
                         str = (char*)roots.back().c_str();
-                        GetCurrentDirectory(MAX_PATH,e);
+                        //GetCurrentDirectory(MAX_PATH,e);
                         SetCurrentDirectory(str);
-                        GetCurrentDirectory(MAX_PATH,e);
+                        //GetCurrentDirectory(MAX_PATH,e);
                         roots.pop_back();
+                        FindClose(file);
                         file = handles.back();
                         handles.pop_back();
                         level--;
-                        vLevels.pop_back();
+                        //vLevels.pop_back();
                         //rt = FindNextFile(file,&fd); //get the ff of the prev handle
                     }
-                    else break; //exit loop weve hit the end of drive
+                    else {
+                        FindClose(file);
+                        break; //exit loop we've hit the end of drive
+                    }
                     memset(&fd,0,sizeof(fd));
                 }
             }
@@ -223,6 +256,13 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         HICON t = LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_MYICON));
         SendMessage(hwndDlg,WM_SETICON,ICON_BIG,(LPARAM)t);
+        for(int i = 0; i<4; i++)
+        {
+            char id[2];
+            itoa(i,id,5);
+            SendMessage(GetDlgItem(hwndDlg,IDC_CMB),CB_ADDSTRING,0,(LPARAM)id);
+        }
+        SendMessage(GetDlgItem(hwndDlg,IDC_CMB),CB_SETCURSEL,(WPARAM)0,0);
         char tmp[8];
         itoa(nDefs,tmp,10);
         SetWindowText(GetDlgItem(hwndDlg,IDS_NDEF),tmp);
@@ -230,13 +270,13 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         prepString();
         free(tmp);
     }
-    return TRUE;
+        return TRUE;
 
     case WM_CHK_DONE:
     {
         SendMessage(GetDlgItem(hwndDlg,IDI_PROG),PBM_SETPOS,(WPARAM)100,0);
     }
-    return TRUE;
+        return TRUE;
 
     case WM_CLOSE:
     {
@@ -244,12 +284,12 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         EndDialog(hwndDlg, 0);
     }
-    return TRUE;
+        return TRUE;
     case WM_UPDATE_MSG:
     {
         SetWindowText(GetDlgItem(hwndDlg,IDMSG),(LPCSTR)lParam);
     }
-    return true;
+        return true;
     case WM_UPDATE_DET:
     {
         ++det;
@@ -257,12 +297,12 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         itoa(det,Buf,10);
         SetWindowText(GetDlgItem(hwndDlg,IDS_DECT),Buf);
     }
-    return true;
+        return true;
     case WM_STEP_PB:
     {
         SendMessage(GetDlgItem(hwndDlg,IDI_PROG),PBM_STEPIT,0,0);
     }
-    return true;
+        return true;
     case WM_COMMAND:
     {
         switch(LOWORD(wParam))
@@ -294,7 +334,7 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             LeaveCriticalSection(&cs);
         }
-        break;
+            break;
         case IDCANCEL:
         {
             int Ret = MessageBox(hwndDlg,"Do you want to exit!?","Confirm",MB_YESNO);
@@ -306,14 +346,14 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 LeaveCriticalSection(&cs);
             }
         }
-        break;
+            break;
         case IDREPAIR:
             //MessageBox(NULL,"Pressed Repair","ButtonTest",MB_OK);
             SetWindowText(GetDlgItem(hwndDlg,IDMSG),"Label Test:clicked Repair");
             break;
         }
     }
-    return TRUE;
+        return TRUE;
     }
     return FALSE;
 }

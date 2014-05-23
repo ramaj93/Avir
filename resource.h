@@ -7,12 +7,12 @@
 #endif
 
 #define DLG_MAIN                                100
-
 #define IDSCAN                                  40000
 #define IDPAUSE                                 40001
 #define IDREPAIR                                40002
 #define IDMSG                                   40003
 #define IDI_PROG                                40004
+#define IDC_CMB                                 40005
 #define IDI_MYICON                              40005
 #define IDS_NDEF                                40006
 
