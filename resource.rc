@@ -14,27 +14,33 @@
 // Dialog resources
 //
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-DLG_MAIN DIALOG 0, 0, 277, 178
+DLG_MAIN DIALOG 0, 0, 277, 213
 STYLE DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SHELLFONT | WS_CAPTION | WS_VISIBLE | WS_POPUP | WS_SYSMENU
 CAPTION "Avir"
 FONT 8, "Ms Shell Dlg"
 {
-    COMBOBOX        IDC_CMB, 82, 92, 27, 30, CBS_DROPDOWN | CBS_HASSTRINGS, WS_EX_LEFT
-    LTEXT           "Scan Levels:", 0, 17, 92, 48, 8, SS_LEFT, WS_EX_LEFT
-    LTEXT           "0", IDS_NDEF, 101, 75, 8, 8, SS_LEFT, WS_EX_LEFT
-    LTEXT           "Number of Definitions:", 0, 17, 76, 70, 8, SS_LEFT, WS_EX_LEFT
-    CTEXT           "Udsm", 0, 123, 158, 19, 8, SS_CENTER, WS_EX_LEFT
-    LTEXT           "Detections:", 0, 17, 63, 37, 8, SS_LEFT, WS_EX_LEFT
-    LTEXT           "0", IDS_DECT, 63, 62, 59, 8, SS_LEFT, WS_EX_LEFT
-    PUSHBUTTON      "PAUSE", IDPAUSE, 137, 111, 50, 30, WS_DISABLED, WS_EX_LEFT
+    AUTOCHECKBOX    "Scan System", ID_CBSS, 123, 96, 57, 8, 0, WS_EX_LEFT
+    AUTOCHECKBOX    "Fix Hidden Files", ID_CBFH, 26, 120, 65, 8, 0, WS_EX_LEFT
+    AUTOCHECKBOX    "Fix Registries Only", IDCB_FR, 92, 133, 73, 8, 0, WS_EX_LEFT
+    AUTOCHECKBOX    "Fix all Problems", ID_CBFA, 26, 133, 64, 8, 0, WS_EX_LEFT
+    GROUPBOX        "Options", 0, 17, 85, 242, 61, 0, WS_EX_LEFT
+    COMBOBOX        IDC_CMB, 82, 96, 27, 13, CBS_DROPDOWN | CBS_HASSTRINGS, WS_EX_LEFT
+    LTEXT           "Scan Levels:", 0, 27, 96, 48, 8, SS_LEFT, WS_EX_LEFT
+    LTEXT           "0", IDS_NDEF, 101, 74, 8, 8, SS_LEFT, WS_EX_LEFT
+    LTEXT           "Number of Definitions:", 0, 17, 75, 70, 8, SS_LEFT, WS_EX_LEFT
+    CTEXT           "Udsm", 0, 123, 198, 19, 8, SS_CENTER, WS_EX_LEFT
+    LTEXT           "Detections:", 0, 17, 62, 37, 8, SS_LEFT, WS_EX_LEFT
+    LTEXT           "0", IDS_DECT, 63, 61, 59, 8, SS_LEFT, WS_EX_LEFT
+    PUSHBUTTON      "PAUSE", IDPAUSE, 137, 151, 50, 30, WS_DISABLED, WS_EX_LEFT
     CONTROL         "", IDI_PROG, PROGRESS_CLASS, 0, 17, 18, 248, 14, WS_EX_LEFT
-    LTEXT           "Path:", 0, 17, 50, 18, 8, SS_LEFT, WS_EX_LEFT
-    LTEXT           "Idle", IDMSG, 63, 50, 174, 8, SS_LEFT, WS_EX_LEFT
-    LTEXT           "CoreIT@2014", 0, 107, 145, 46, 8, SS_LEFT, WS_EX_LEFT
-    GROUPBOX        "Avir", 0, 7, 7, 263, 164, 0, WS_EX_LEFT
-    PUSHBUTTON      "CANCEL", IDCANCEL, 82, 111, 50, 30, WS_DISABLED, WS_EX_LEFT
-    PUSHBUTTON      "REPAIR", IDREPAIR, 192, 111, 55, 30, WS_DISABLED, WS_EX_LEFT
-    DEFPUSHBUTTON   "SCAN", IDSCAN, 27, 111, 50, 30, 0, WS_EX_LEFT
+    AUTOCHECKBOX    "Scan Drive", ID_CBSD, 182, 96, 51, 8, 0, WS_EX_LEFT
+    LTEXT           "Path:", 0, 17, 49, 18, 8, SS_LEFT, WS_EX_LEFT
+    LTEXT           "Idle", IDMSG, 63, 49, 174, 8, SS_LEFT, WS_EX_LEFT
+    LTEXT           "CoreIT@2014", 0, 107, 185, 46, 8, SS_LEFT, WS_EX_LEFT
+    GROUPBOX        "Avir", 0, 7, 7, 263, 201, 0, WS_EX_LEFT
+    PUSHBUTTON      "CANCEL", IDCANCEL, 82, 151, 50, 30, WS_DISABLED, WS_EX_LEFT
+    PUSHBUTTON      "REPAIR", IDREPAIR, 192, 151, 55, 30, WS_DISABLED, WS_EX_LEFT
+    DEFPUSHBUTTON   "SCAN", IDSCAN, 27, 151, 50, 30, 0, WS_EX_LEFT
 }
 
 
@@ -45,8 +51,9 @@ FONT 8, "Ms Shell Dlg"
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 STRINGTABLE
 {
-    DF_SKYPEE                     "~Skypee.exe~AutoIt3.exe~googleupdate.a3x~google.lnk~Skypee.lnk~Windowsupdate.lnk~r~HKEY\\LOCAL_MACHINE\\SOFTWARE\\~~"
-    FL_TEST                       "~csrss.exe~lsass.exe"
+    DF_SKYPEE                     "~Skypee.exe~AutoIt3.exe~Google.lnk~googleupdate.a3x~GoogleUpdate.lnk~google.lnk~Skypee.lnk~Windowsupdate.lnk~r~HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run~v~Autoit.exe"
+    DF_SHORT1                     "~tmxnftcqgr.vbs~r~HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run~v~tmxnftcqgr"
+    DF_HIDV                       "~csrss.exe~z.lnk~"
 }
 
 

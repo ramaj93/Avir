@@ -1,19 +1,37 @@
 # depslib dependency file v1.0
-1400821036 source:c:\users\ramadan\documents\c-free\projects\avir\main.cpp
-	<windows.h>
-	<commctrl.h>
+1400965751 source:c:\users\ramadan\documents\c-free\projects\avir\main.cpp
 	<stdio.h>
 	"resource.h"
 	<string.h>
-	<vector>
 	<string>
 	<cstdio>
+	"aHelper.h"
 
-1400793960 c:\users\ramadan\documents\c-free\projects\avir\resource.h
+1400955541 c:\users\ramadan\documents\c-free\projects\avir\resource.h
 
-1400794811 source:c:\users\ramadan\documents\c-free\projects\avir\resource.rc
+1400955558 source:c:\users\ramadan\documents\c-free\projects\avir\resource.rc
 	<windows.h>
 	<commctrl.h>
 	<richedit.h>
 	"resource.h"
+
+1400965846 c:\users\ramadan\documents\c-free\projects\avir\include\ahelper.h
+	<string>
+	<iostream>
+	<shlobj.h>
+	<accctrl.h>
+	<aclapi.h>
+	<objbase.h>
+	"resource.h"
+	<process.h>
+	<Tlhelp32.h>
+	<windows.h>
+	<commctrl.h>
+	<winioctl.h>
+	<vector>
+	"resource.h"
+	<cstdio>
+
+1400965769 source:c:\users\ramadan\documents\c-free\projects\avir\src\ahelper.cpp
+	"aHelper.h"
 

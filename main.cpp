@@ -1,172 +1,258 @@
 #include <stdio.h>
 #include "resource.h"
 #include <string.h>
-#include <vector>
 #include <string>
 #include <cstdio>
 #include "aHelper.h"
 
+CRITICAL_SECTION cs;
 
 HINSTANCE hInst;
-HANDLE mhThread;
+HANDLE mhThread,hRepair;
+
+FILE *logFile = NULL;
+
 bool Stop = false;
 bool pause = false;
 char drivers[MAX_PATH];
 char drive[25][10];
 long det = 0;
-FILE *logFile = NULL;
-const unsigned int nDefs = IDS_LAST - IDS_DECT;
-CRITICAL_SECTION cs;
+bool isScanDrive = false;
+bool scanReady = false;
 
-//typedef BOOL (WINAPI *PFN_SETRESTOREPTW) (PRESTOREPOINTINFOW, PSTATEMGRSTATUS);
-typedef std::vector<HANDLE> vHandle;
-typedef std::vector<std::string> vString;
 std::vector<int> vLevels;
-
-struct def
-{
-    vString files;
-    vString regs;
-};
-
-typedef std::vector<def> vDef;
-
+std::string appDir;
 vDef defs;
-vString roots;
+repStruct reps;
+_options opt;
 
-void prepString();
-int fillDrives(int len)
+int fillDrives(int nBufSz,bool bDrv)
 {
-    int drv = 0;
-    int index = 0;
-    for(int i = 0; i<len; i++)
+    int i = 0;
+    if(bDrv)
     {
-        if(drivers[i]!='\0')drive[drv][index++] = drivers[i];
-        else
-        {
-            char *d = drive[drv];
-            drv++;
-            index = 0;
+        while(drivers[i]!='\0'){
+            drive[0][i] = drivers[i];
+            i++;
         }
     }
-    return drv;
+    else {
+        int drv = 0;
+        int index = 0;
+        for(int i = 0; i<nBufSz; i++)
+        {
+            if(drivers[i]!='\0')drive[drv][index++] = drivers[i];
+            else
+            {
+                drv++;
+                index = 0;
+            }
+        }
+        return drv;
+    }
 }
-
-
-
-
-
-
-
 
 
 
 DWORD WINAPI thread(LPVOID param)
 {
     HWND lHwnd = (HWND)param;
-    int count = 0;
-    //char buf[MAX_PATH];
-    int len = GetLogicalDriveStrings(MAX_PATH,drivers);
+    unsigned int count = 0;
     WIN32_FIND_DATA fd;
     HANDLE file = NULL;
     vHandle handles;
-    const unsigned int MAX_LEV = SendMessage(GetDlgItem(lHwnd,IDC_CMB),CB_GETCURSEL,0,0); //get the max levels
-    /*We always start at the drive root*/
-    int level = 0;
-    /*Get Number of Drives and Root Paths*/
-
-    int dlen = fillDrives(len);
-    int rt = 1;
+    vString roots;
+    int dwRet = 0;
     std::string curFolder;
-    char e[MAX_PATH] ;
-    char path[MAX_PATH];
-    logFile = fopen("log.txt","a");
+    char strPath[MAX_PATH] ;
+    int flags = 0;
+    int dlen;
+    unsigned int nDirLevl = 0;
+    unsigned int MAX_LEV = SendMessage(GetDlgItem(lHwnd,IDC_CMB),CB_GETCURSEL,0,0); //get the max levels
+    //if level = 0 make it unlimited
+    /*We always start at the drive root*/
+    if(MAX_LEV == 0)MAX_LEV = 268435437;
 
+
+
+    /*Get Number of Drives and Root Paths*/
+    if(isScanDrive)
+    {
+        fillDrives(1,true);
+    }
+    else
+    {
+        int len = GetLogicalDriveStrings(MAX_PATH,drivers);
+        dlen = fillDrives(len,false);
+    }
+
+    logFile = fopen("log.txt","a");
+    GetCurrentDirectory(MAX_PATH,strPath);
+    appDir = strPath;
     while(!Stop &&count <=dlen)
     {
         /*Set Current directory*/
-        GetCurrentDirectory(MAX_PATH,e);
+        GetCurrentDirectory(MAX_PATH,strPath);
         int driveType = GetDriveType(drive[count]);
         DWORD type = GetDriveFormFactor(count);
-        if((driveType == DRIVE_REMOVABLE)&&(type>0)&&(type<350)||(driveType == DRIVE_FIXED))
+        if((driveType == DRIVE_REMOVABLE)&&((type>=0)&&(type<350))||(driveType == DRIVE_FIXED))
         {
             SetCurrentDirectory(drive[count]);
+            roots.push_back(drive[count]);
         }
         else
         {
             count++;
             continue;
         }
-        char *dr = drive[count];
-        GetCurrentDirectory(MAX_PATH,e);
+
+        //GetCurrentDirectory(MAX_PATH,e);
         if(file == NULL)file = FindFirstFile("*",&fd);
 
-        while(!Stop)          //we shouldnt get out of this loop until we finish the drive
+        while(!Stop)          //we shouldn't get out of this loop until we finish the drive
         {
+            memset(strPath,0,MAX_PATH);
+            memset(strPath,0,MAX_PATH);
+
             if(!pause)
             {
-                Sleep(1);
-                rt = FindNextFile(file,&fd);
-                if(rt == 0 && level == 0)break;
-                //GetCurrentDirectory(MAX_PATH,e);
-                //char *hy = fd.cFileName;
-                if(rt > 0) //not the end of root
+                Sleep(10);
+
+                dwRet = FindNextFile(file,&fd);
+
+                if(dwRet == 0 && nDirLevl == 0)break;
+
+                if(dwRet > 0) //not the end of root
                 {
                     if(fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
                     {
                         //Its a directory
                         //we'll only go to max level
-                        if(!(fd.dwFileAttributes&FILE_ATTRIBUTE_SYSTEM&FILE_ATTRIBUTE_READONLY))
+                        if(!isScanDrive && strcmp(fd.cFileName,"Windows") == 0)
                         {
-                            if(level < MAX_LEV)
+                            flags = 1;
+                        }
+                        if(flags == 0)
+                        { //we are not in root
+                            if(fd.dwFileAttributes&FILE_ATTRIBUTE_ARCHIVE)
                             {
-                                if(fd.cFileName[0] == '.')continue;
-                                handles.push_back(file);
-                                GetCurrentDirectory(MAX_PATH,e);
-                                roots.push_back(e);
-                                //char *fld = fd.cFileName;
-                                SetCurrentDirectory(fd.cFileName);
-                                curFolder = fd.cFileName;       //save the current dir
-                                GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
-                                SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
-                                file = FindFirstFile("*",&fd);  //get the new handle
-                                vLevels.push_back(level);       //push the level
-                                level++;
+                                if(fd.dwFileAttributes&FILE_ATTRIBUTE_HIDDEN) //if its hidden
+                                {
+                                    if(SetFileAttributes(fd.cFileName,fd.dwFileAttributes&~( FILE_ATTRIBUTE_READONLY|
+                                                                                             FILE_ATTRIBUTE_HIDDEN|
+                                                                                             FILE_ATTRIBUTE_SYSTEM)) == 0)
+                                    {
+                                        std::string tmp = fd.cFileName;
+                                        ErrorOut(logFile,"Error setting Folder Attribute:"+tmp+":",1);
+                                        continue;
+                                    }
+                                    //check names of suspected viruses
+                                }
                             }
-                            else {
-                                GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
-                                SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
-                                continue;   //goto lower level
+                            if(fd.dwFileAttributes&(FILE_ATTRIBUTE_SYSTEM|FILE_ATTRIBUTE_READONLY)) //if its system and ro
+                            {
+                                if(flags == 0){
+                                    if(SetFileAttributes(fd.cFileName,fd.dwFileAttributes&~(FILE_ATTRIBUTE_HIDDEN|
+                                                                                            FILE_ATTRIBUTE_SYSTEM))==0)
+                                    {
+                                        std::string tmp = fd.cFileName;
+                                        ErrorOut(logFile,"Error setting Folder Attribute:"+tmp+":",1);
+                                        continue;
+                                    }
+                                }
+                            }
+                        }//endof non sys op
+                        else
+                        {
+                            //deal with root probs
+                            //}
+                        }
+                        if(nDirLevl < MAX_LEV)
+                        {
+                            if(fd.cFileName[0] == '.')continue;
+                            if(SetCurrentDirectory(fd.cFileName)>0){
+                                handles.push_back(file);
+                                curFolder = fd.cFileName;       //save the current dir
+                                GetCurrentDirectory(MAX_PATH,strPath);
+                                roots.push_back(strPath);
+                                SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)strPath);
+
+                                file = FindFirstFile("*",&fd);              //get the new handle
+                                vLevels.push_back(nDirLevl);                   //push the level
+                                nDirLevl++;
+                            }
+                            else
+                            {
+                                //folder not openable
+                                GetFullPathName(fd.cFileName,MAX_PATH,strPath,NULL);
+                                SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)strPath);
+                                continue;
                             }
                         }
                         else
-                        {
+                        { //we av reached the highest lvl Just disp em.
+                            GetFullPathName(fd.cFileName,MAX_PATH,strPath,NULL);
+                            SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)strPath);
                             continue;
                         }
+
                     }
+
                     else
                     {
                         //its a file
+                        bool added = false;
                         if(fd.cFileName[0] == '.')continue; //jump the . & ..
-                        GetFullPathName(fd.cFileName,MAX_PATH,path,NULL);
-                        SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)path);
+                        GetFullPathName(fd.cFileName,MAX_PATH,strPath,NULL);
+                        SendMessage(lHwnd,WM_UPDATE_MSG,0,(LPARAM)strPath);
                         for(int i = 0; i<defs.size(); i++)
                         {
                             for(int j = 0; j<defs[i].files.size(); j++)
                             {
-                                if(strcmp(fd.cFileName,defs[i].files[j].c_str()) == 0)
+                                if(defs[i].files[j][0] == '*')
                                 {
-                                    PostMessage(lHwnd,WM_UPDATE_DET,0,0);
-                                    fprintf(logFile,"\\%s\\%s\n",curFolder.c_str(),fd.cFileName);
+                                    std::string tmp = fd.cFileName;     //eg *.lnk
+                                    std::string gg = defs[i].files[j];
+                                    if(tmp.find(defs[i].files[j].substr(2))!= std::string::npos)
+                                    {
+                                        addRec(strPath,i,j);
+                                        fprintf(logFile,"Suspected File:%s\n",strPath);
+                                        added = true;
+                                    }
+                                }
+                                if(strncmp(fd.cFileName,defs[i].files[j].c_str(),strlen(fd.cFileName))== 0 && !added)
+                                {
+                                    //if its not system and not in sys root
+                                    //try change attr
+                                    //if succ or failed
+                                    //delete file
+
+                                    if(!(fd.dwFileAttributes&FILE_ATTRIBUTE_SYSTEM)&&(flags==0))
+                                    { //if not file system
+                                        fprintf(logFile,"Suspected File:%s\n",strPath);
+                                        addRec(strPath,i,j);
+                                        added = true;
+                                        if(fd.dwFileAttributes&(FILE_ATTRIBUTE_HIDDEN))
+                                        {
+
+                                        }
+                                    }
+                                    else
+                                    {
+                                        //do summat here
+                                    }
                                 }
 
                             }
                         }
-                        if(curFolder.compare(fd.cFileName)==0)
-                        {
-                            PostMessage(lHwnd,WM_UPDATE_DET,0,0);
-                            fprintf(logFile,"%s\n",fd.cFileName);
+                        if(curFolder.compare(fd.cFileName)==0 && !added)
+                        {//suspected
+                            if(opt&FIX_ALL)
+                                addRec(strPath,-1,-1);
+                            added = true;
+                            fprintf(logFile,"File is suspected:%s\n",strPath);
                         }
+                        if(added)PostMessage(lHwnd,WM_UPDATE_DET,0,0);
                         PostMessage(lHwnd,WM_STEP_PB,0,0);
                     }
                     memset(&fd,0,sizeof(fd));
@@ -174,23 +260,29 @@ DWORD WINAPI thread(LPVOID param)
                 else //rt is zero ff has failed
                 {
                     //going back one level will return us to the root
-                    if(level > 0) //if its not drive root
+                    if(nDirLevl > 0) //if its not drive root
                     {
-                        char *str = (char*)roots.back().c_str();
-                        //roots.pop_back();                       //pop this root to the previous one
-                        str = (char*)roots.back().c_str();
-                        //GetCurrentDirectory(MAX_PATH,e);
-                        SetCurrentDirectory(str);
-                        //GetCurrentDirectory(MAX_PATH,e);
+                        if(roots.back().find("Windows",3)!=std::string::npos){
+                            flags = 0; //we are leaving the root
+                        }
                         roots.pop_back();
+                        if(roots.size() > 0){
+                            SetCurrentDirectory(roots.back().c_str());
+                            curFolder = roots.back().c_str();
+                        }
+                        else
+                        {
+                            break;
+                        }
                         FindClose(file);
                         file = handles.back();
                         handles.pop_back();
-                        level--;
-                        //vLevels.pop_back();
-                        //rt = FindNextFile(file,&fd); //get the ff of the prev handle
+                        nDirLevl--;
                     }
                     else {
+                        if(roots.back().compare("Windows") == 0){
+                            flags = 0;
+                        }
                         FindClose(file);
                         break; //exit loop we've hit the end of drive
                     }
@@ -202,8 +294,9 @@ DWORD WINAPI thread(LPVOID param)
                 Sleep(100);
             }
         }
-        rt = 1;
+        dwRet = 1;
         file = NULL;
+        roots.clear();
         handles.clear();
         count ++;
     }
@@ -215,39 +308,7 @@ DWORD WINAPI thread(LPVOID param)
     ExitThread(0);
 }
 
-void prepString()
-{
-    def tmp;
-    char *strBuf;
-    int flag = 0;
-    for(int i = 1; i<nDefs; i++)
-    {
-        char Buf[512] = {0};
-        LoadString(hInst,IDS_DECT+i,Buf,512);
-        strBuf = strtok(Buf,"~");
-        tmp.files.push_back(strBuf);
-        while((strBuf = strtok(NULL,"~"))!= NULL)
-        {
-            if(strBuf[0] == 'r')
-            {
-                //its a reg string
-                flag = 1;
-            }
-            else
-            {
-                if(flag == 1)
-                {
-                    tmp.regs.push_back(strBuf);
-                    flag = 0;
-                }
-                else tmp.files.push_back(strBuf);
-            }
-        }
-        defs.push_back(tmp);
-        tmp.files.clear();
-        tmp.regs.clear();
-    }
-}
+
 BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch(uMsg)
@@ -261,25 +322,33 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             char id[2];
             itoa(i,id,5);
             SendMessage(GetDlgItem(hwndDlg,IDC_CMB),CB_ADDSTRING,0,(LPARAM)id);
+
         }
-        SendMessage(GetDlgItem(hwndDlg,IDC_CMB),CB_SETCURSEL,(WPARAM)0,0);
+        opt = UNKNOWN;
+        SendMessage(GetDlgItem(hwndDlg,IDC_CMB),CB_SETCURSEL,(WPARAM)1,0);
         char tmp[8];
         itoa(nDefs,tmp,10);
         SetWindowText(GetDlgItem(hwndDlg,IDS_NDEF),tmp);
         hInst = GetModuleHandle(NULL);
         prepString();
-        free(tmp);
     }
         return TRUE;
 
     case WM_CHK_DONE:
     {
         SendMessage(GetDlgItem(hwndDlg,IDI_PROG),PBM_SETPOS,(WPARAM)100,0);
+        SetWindowText(GetDlgItem(hwndDlg,IDSCAN),"Open Log");
+        SetWindowText(GetDlgItem(hwndDlg,IDCANCEL),"Exit");
+        EnableWindow(GetDlgItem(hwndDlg,IDREPAIR),TRUE);
+        scanReady = true;
     }
         return TRUE;
 
     case WM_CLOSE:
     {
+        fflush(logFile);
+        fclose(logFile);
+
         CloseHandle(mhThread);
 
         EndDialog(hwndDlg, 0);
@@ -303,18 +372,129 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         SendMessage(GetDlgItem(hwndDlg,IDI_PROG),PBM_STEPIT,0,0);
     }
         return true;
+    case WM_REP_DONE:
+    {
+        SendMessage(GetDlgItem(hwndDlg,IDI_PROG),PBM_SETPOS,(WPARAM)100,0);
+        SetWindowText(GetDlgItem(hwndDlg,IDMSG),(LPSTR)"Done repairing.");
+        fflush(logFile);
+        fclose(logFile);
+    }
+        return true;
     case WM_COMMAND:
     {
+        _options o = opt;
         switch(LOWORD(wParam))
         {
+        case ID_CBSS:
+        {
+            if(SendMessage(GetDlgItem(hwndDlg,ID_CBSS),BM_GETCHECK,0,0) == BST_CHECKED)
+            {
+                opt = static_cast<_options>(opt&~(SCAN_DRIVE));
+                opt = static_cast<_options>(opt|SCAN_SYSTEM);
+                SendMessage(GetDlgItem(hwndDlg,ID_CBSD),BM_SETCHECK,(WPARAM)BST_UNCHECKED,0);
+            }
+            else
+            {
+                opt = static_cast<_options>(opt&~(SCAN_SYSTEM));
+                opt = static_cast<_options>((int)opt|(int)SCAN_DRIVE);
+                SendMessage(GetDlgItem(hwndDlg,ID_CBSD),BM_SETCHECK,(WPARAM)BST_CHECKED,0);
+            }
+        }
+            return true;
+        case ID_CBSD:
+        {
+            if(SendMessage(GetDlgItem(hwndDlg,ID_CBSD),BM_GETCHECK,0,0) == BST_CHECKED)
+            {
+                opt = static_cast<_options>((int)opt|(int)SCAN_DRIVE);
+                o = opt;
+                SendMessage(GetDlgItem(hwndDlg,ID_CBSS),BM_SETCHECK,(WPARAM)BST_UNCHECKED,0);
+            }
+            else
+            {
+                opt = static_cast<_options>((int)opt|(int)SCAN_SYSTEM);
+                SendMessage(GetDlgItem(hwndDlg,ID_CBSS),BM_SETCHECK,(WPARAM)BST_CHECKED,0);
+            }
+        }
+            return true;
+        case  ID_CBFH:
+        {
+            o = opt;
+            opt = static_cast<_options>((int)opt|(int)FIX_HIDDEN);
+            o = opt;
+        }
+            break;
+        case  ID_CBFA:
+        {
+            o = opt;
+            opt = static_cast<_options>((int)opt|(int)FIX_ALL);
+            o = opt;
+        }
+            break;
+        case  IDCB_FR:
+        {
+            o = opt;
+            opt = static_cast<_options>((int)opt|(int)FIX_REGISTRY);
+            o = opt;
+        }
+            break;
         case    IDSCAN:
-            mhThread = CreateThread(NULL,0,thread,hwndDlg,0,0);
-            //char Buf[MAX_PATH];
-            //LoadString(hInst,FL_TEST,Buf,MAX_PATH);
-            //MessageBox(hwndDlg,Buf,"StringListTest",MB_OK);
-            EnableWindow(GetDlgItem(hwndDlg,IDPAUSE),TRUE);
-            EnableWindow(GetDlgItem(hwndDlg,IDCANCEL),TRUE);
-            EnableWindow(GetDlgItem(hwndDlg,IDREPAIR),TRUE);
+            if(scanReady)
+            {
+                const char *hy = appDir.c_str();
+                int qw = SetCurrentDirectory(hy);
+                system("start log.txt");
+            }
+            else
+            {
+
+                EnableWindow(GetDlgItem(hwndDlg,IDPAUSE),TRUE);
+                EnableWindow(GetDlgItem(hwndDlg,IDCANCEL),TRUE);
+                if(opt & SCAN_SYSTEM)
+                {
+                    mhThread = CreateThread(NULL,0,thread,hwndDlg,0,0);
+                }
+                else if(opt & SCAN_DRIVE)
+                {
+                    BROWSEINFO bi;
+                    LPITEMIDLIST pidlPrograms;  // PIDL for Programs folder
+                    LPITEMIDLIST pidlBrowse;    // PIDL selected by user
+
+
+                    // Get the PIDL for the Programs folder.
+                    if (!SUCCEEDED(SHGetSpecialFolderLocation(
+                                       hwndDlg, CSIDL_DRIVES, &pidlPrograms))) {
+                    }
+
+                    // Fill in the BROWSEINFO structure.
+                    bi.hwndOwner = hwndDlg;
+                    bi.pidlRoot = pidlPrograms;
+                    bi.pszDisplayName = drivers;
+
+                    bi.lpszTitle = "Select a Drive to Scan:";
+                    bi.ulFlags = 0;
+                    bi.lpfn = NULL;
+                    bi.lParam = 0;
+
+                    // Browse for a folder and return its PIDL.
+                    pidlBrowse = SHBrowseForFolder(&bi);
+                    if (pidlBrowse != NULL) {
+
+                        if (SHGetPathFromIDList(pidlBrowse,drivers))
+                        {
+                            isScanDrive = true;
+                            //consider other options
+                            mhThread = CreateThread(NULL,0,thread,hwndDlg,0,0);
+                        }
+
+                    }
+                }
+                else
+                {
+                    MessageBox(hwndDlg,"Select One Disk Option!","Error",MB_ICONERROR|MB_OK);
+                }
+
+            }
+            // Clean up.
             break;
         case IDPAUSE:
         {
@@ -337,19 +517,31 @@ BOOL CALLBACK DlgMain(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         case IDCANCEL:
         {
-            int Ret = MessageBox(hwndDlg,"Do you want to exit!?","Confirm",MB_YESNO);
-            if(Ret == IDYES)
+            if(!scanReady)
             {
-                EnterCriticalSection(&cs);
-                Stop = true;
-                EnableWindow(GetDlgItem(hwndDlg,IDPAUSE),FALSE);
-                LeaveCriticalSection(&cs);
+                int Ret = MessageBox(hwndDlg,"Do you want to Stop Operation!?","Confirm",MB_YESNO);
+                if(Ret == IDYES)
+                {
+                    EnterCriticalSection(&cs);
+                    Stop = true;
+                    EnableWindow(GetDlgItem(hwndDlg,IDPAUSE),FALSE);
+                    LeaveCriticalSection(&cs);
+                }
+            }
+            else
+            {
+                int Ret = MessageBox(hwndDlg,"Do you want to want to Exit App!?","Confirm",MB_YESNO);
+                if(Ret == IDYES)
+                {
+                    ExitProcess(0);
+                }
             }
         }
             break;
         case IDREPAIR:
-            //MessageBox(NULL,"Pressed Repair","ButtonTest",MB_OK);
-            SetWindowText(GetDlgItem(hwndDlg,IDMSG),"Label Test:clicked Repair");
+            SendMessage(GetDlgItem(hwndDlg,IDI_PROG),PBM_SETPOS,(WPARAM)0,0);
+            hRepair = CreateThread(NULL,0,runRepairs,hwndDlg,0,0);
+
             break;
         }
     }

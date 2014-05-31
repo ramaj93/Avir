@@ -110,3 +110,17 @@ Skypee.exe
 \Skypee\Skypee.exe
 \Skypee\AutoIt3.exe
 \Skypee\Skypee.exe
+Error setting Folder Attribute:MSOCache::Access is denied.
+
+Error setting Folder Attribute:Program Files::Access is denied.
+
+Error setting Folder Attribute:Program Files (x86)::Access is denied.
+
+Error setting Folder Attribute:System Volume Information::Access is denied.
+
+Error setting Folder Attribute:Users::Access is denied.
+
+Error setting Folder Attribute:System Volume Information::Access is denied.
+
+Error setting Folder Attribute:System Volume Information::Access is denied.
+
